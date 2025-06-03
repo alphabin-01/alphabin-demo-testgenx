@@ -4,6 +4,7 @@ on:
   schedule:
     - cron: '30 3 * * 1-5' # 9:00 AM IST on weekdays
   workflow_dispatch:
+
 jobs:
   run-tests:
     name: Run tests
@@ -13,25 +14,20 @@ jobs:
       matrix:
         shardIndex: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         shardTotal: [10]
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      - name: Create required directories
-        run: |
-          mkdir -p .temp blob-report
-          touch .temp/.placeholder blob-report/.placeholder
-
       - name: Cache npm modules
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.npm
-            .temp
+          path: ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
@@ -44,12 +40,6 @@ jobs:
       - name: Run tests
         run: npm run test:chrome -- --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
 
-      - name: List test output
-        run: |
-          echo "==== After test ===="
-          ls -la .temp
-          ls -la blob-report
-
       - name: Upload blob report
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
@@ -57,34 +47,36 @@ jobs:
           name: test-blob-report-${{ matrix.shardIndex }}
           path: ./blob-report
           retention-days: 1
-          if-no-files-found: warn
 
-      - name: Upload .temp folder (per shard)
-        uses: actions/upload-artifact@v4
+      - name: Upload .temp folder
         if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
         with:
-          name: temp-folder-${{ matrix.shardIndex }}
+          name: temp-folder
           path: ./.temp
-          retention-days: 1
-          if-no-files-found: warn
 
   merge-reports:
     name: Merge Reports
     needs: [run-tests]
     if: ${{ always() }}
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      - name: Create required directories
-        run: |
-          mkdir -p .temp all-reports merged-report
-          touch all-reports/.placeholder merged-report/.placeholder
+      - name: Cache npm modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
       - name: Install dependencies
         run: |
@@ -93,37 +85,16 @@ jobs:
 
       - name: Download blob reports
         uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
           path: ./all-reports
-          pattern: 'test-blob-report-*'
+          pattern: '*-blob-report-*'
           merge-multiple: true
 
-      - name: Download temp folders
+      - name: Download .temp folder
         uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
+          name: temp-folder
           path: ./.temp
-          pattern: 'temp-folder-*'
-          merge-multiple: true
 
-      - name: Show merged .temp and reports
-        run: |
-          echo "=== All Reports ==="
-          find all-reports || echo "No reports"
-          echo "=== .temp Content ==="
-          find .temp || echo "No .temp content"
-
-      - name: Run mergeTestData script
-        if: |
-          exists('./dataCleanUpScripts/mergeTestData.ts') &&
-          (exists('./all-reports') || exists('./.temp'))
-        run: npx ts-node ./dataCleanUpScripts/mergeTestData.ts
-
-      - name: Upload final merged report
-        if: success() && exists('./merged-report')
-        uses: actions/upload-artifact@v4
-        with:
-          name: final-merged-report
-          path: ./merged-report
-          retention-days: 7
+      - name: Run mergeTestData
+        run: npx ts-node ./dataClenUpScripts/mergeTestData.ts
