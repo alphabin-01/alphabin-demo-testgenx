@@ -4,7 +4,6 @@ on:
   schedule:
     - cron: '30 3 * * 1-5' # 9:00 AM IST on weekdays
   workflow_dispatch:
-
 jobs:
   run-tests:
     name: Run tests
@@ -108,7 +107,7 @@ jobs:
           pattern: 'temp-folder-*'
           merge-multiple: true
 
-      - name: Debug: Show merged .temp and reports
+      - name: Show merged .temp and reports
         run: |
           echo "=== All Reports ==="
           find all-reports || echo "No reports"
