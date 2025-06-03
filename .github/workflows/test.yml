@@ -14,8 +14,10 @@ jobs:
       matrix:
         shardIndex: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         shardTotal: [10]
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -46,13 +48,22 @@ jobs:
           path: ./blob-report
           retention-days: 1
 
+      - name: Upload .temp folder
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: temp-folder
+          path: ./.temp
+
   merge-reports:
     name: Merge Reports
     needs: [run-tests]
     if: ${{ always() }}
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -79,18 +90,11 @@ jobs:
           pattern: '*-blob-report-*'
           merge-multiple: true
 
-      - name: Merge HTML report
-        run: npx playwright merge-reports --config=playwright.config.ts ./all-reports
-
-      - name: Upload combined report
-        uses: actions/upload-artifact@v4
+      - name: Download .temp folder
+        uses: actions/download-artifact@v4
         with:
-          name: Combined Test Report
-          path: ./playwright-report
-          retention-days: 14
+          name: temp-folder
+          path: ./.temp
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./playwright-report
+      - name: Run mergeTestData
+        run: npx ts-node ./dataClenUpScripts/mergeTestData.ts
