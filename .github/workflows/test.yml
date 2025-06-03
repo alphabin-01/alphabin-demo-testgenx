@@ -1,60 +1,35 @@
-name: Run Playwright tests
+name: E2E Tests
 
 on:
-  schedule:
-    - cron: '30 3 * * 1-5' # 9:00 AM IST on weekdays
-  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
   run-tests:
-    name: Run tests
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
-        shardIndex: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        shardTotal: [10]
+        shardIndex: [1, 2]
+        shardTotal: [2]
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
-
-      - name: Create required directories
-        run: |
-          mkdir -p .temp blob-report
-          touch .temp/.gitkeep blob-report/.gitkeep
-
-      - name: Cache npm modules
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.npm
-            .temp
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          node-version: 20
 
       - name: Install dependencies
-        run: |
-          npm ci
-          npx playwright install --with-deps
+        run: npm ci
 
-      - name: Run tests
-        run: npm run test:chrome -- --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+      - name: Run Playwright tests (sharded)
+        run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
 
-      - name: Upload blob report
-        uses: actions/upload-artifact@v4
+      - name: Upload .temp folder
         if: ${{ !cancelled() }}
-        with:
-          name: test-blob-report-${{ matrix.shardIndex }}
-          path: ./blob-report
-          retention-days: 1
-
-      - name: Upload .temp folder (only on shard 1)
-        if: ${{ matrix.shardIndex == 1 && !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: temp-folder
@@ -62,70 +37,33 @@ jobs:
           retention-days: 1
 
   merge-reports:
-    name: Merge Reports
-    needs: [run-tests]
-    if: ${{ always() }}
+    needs: run-tests
     runs-on: ubuntu-latest
+    if: always()
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
-
-      - name: Create required directories
-        run: mkdir -p .temp all-reports
-
-      - name: Cache npm modules
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
-      - name: Install dependencies
-        run: |
-          npm ci
-          npx playwright install --with-deps
-
-      - name: Download blob reports
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          path: ./all-reports
-          pattern: 'test-blob-report-*'
-          merge-multiple: true
+          node-version: 20
 
       - name: Download .temp folder
         uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
           name: temp-folder
           path: ./.temp
+          merge-multiple: true
 
-      - name: Verify downloads
-        run: |
-          echo "Contents of all-reports:"
-          ls -R ./all-reports || echo "No reports downloaded"
-          
-          echo "Contents of .temp:"
-          ls -R ./.temp || echo "No temp folder downloaded"
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Run mergeTestData
-        run: |
-          if [ -f "./dataCleanUpScripts/mergeTestData.ts" ]; then
-            npx ts-node ./dataCleanUpScripts/mergeTestData.ts
-          else
-            echo "mergeTestData.ts not found!"
-            exit 1
-          fi
+      - name: Merge HTML reports
+        run: npx playwright merge-reports --reporter html ./.temp
 
-      - name: Upload merged report
-        if: success()
+      - name: Upload Playwright HTML report
         uses: actions/upload-artifact@v4
         with:
-          name: merged-test-report
-          path: ./merged-report
-          retention-days: 1
+          name: playwright-report
+          path: playwright-report
