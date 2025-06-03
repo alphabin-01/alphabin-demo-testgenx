@@ -14,10 +14,8 @@ jobs:
       matrix:
         shardIndex: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         shardTotal: [10]
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -48,8 +46,8 @@ jobs:
           path: ./blob-report
           retention-days: 1
 
-      - name: Upload .temp folder
-        if: ${{ !cancelled() }}
+      - name: Upload .temp folder (only on shard 1)
+        if: ${{ matrix.shardIndex == 1 && !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: temp-folder
@@ -60,10 +58,8 @@ jobs:
     needs: [run-tests]
     if: ${{ always() }}
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -95,6 +91,9 @@ jobs:
         with:
           name: temp-folder
           path: ./.temp
+
+      - name: List .temp folder content
+        run: ls -R ./.temp || echo ".temp folder not found!"
 
       - name: Run mergeTestData
         run: npx ts-node ./dataClenUpScripts/mergeTestData.ts
