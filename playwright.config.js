@@ -11,13 +11,13 @@ module.exports = defineConfig({
   reporter: [
     ['html', { open: 'never' }]
   ],
-  timeout: 100000,
+  timeout: 10000,
 //   expect: {
 //     timeout: 100000,
 //   },
   use: {
     launchOptions: {
-      slowMo: 1000,
+      slowMo: 500,
       args: [
         '--start-maximized',
       ]
