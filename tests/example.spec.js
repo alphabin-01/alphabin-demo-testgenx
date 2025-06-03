@@ -6,7 +6,6 @@ const config = require('../playwright.config.js');
 const { descriptions } = require('../elementDescriptions.js')
 
 let context;
-
 test.beforeEach(async () => {
     const result = await BrowserFactory.createBrowserWithContext(
         config.projects[0].name,
