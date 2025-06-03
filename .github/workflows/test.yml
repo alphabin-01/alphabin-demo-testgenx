@@ -22,10 +22,17 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Create required directories
+        run: |
+          mkdir -p .temp blob-report
+          touch .temp/.gitkeep blob-report/.gitkeep
+
       - name: Cache npm modules
         uses: actions/cache@v3
         with:
-          path: ~/.npm
+          path: |
+            ~/.npm
+            .temp
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
@@ -35,33 +42,10 @@ jobs:
           npm ci
           npx playwright install --with-deps
 
-      - name: Run tests and upload reports after each test file
-        run: |
-          # Run tests with the list reporter to get file names
-          TEST_FILES=$(npx playwright test --list --reporter=list | grep -E '\.spec\.ts$' || true)
-          
-          for FILE in $TEST_FILES; do
-            echo "Running test file: $FILE"
-            # Run individual test file
-            npx playwright test $FILE --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} || true
-            
-            # Upload report after each test file
-            if [ -d "./blob-report" ]; then
-              echo "Uploading report for $FILE"
-              # Create a unique name for each artifact
-              ARTIFACT_NAME="test-report-${{ matrix.shardIndex }}-$(date +%s)"
-              gh run download $GITHUB_RUN_ID -n "$ARTIFACT_NAME" -p ./blob-report || echo "Failed to upload report"
-              
-              # Alternative if gh CLI isn't available
-              # tar -czf report.tar.gz ./blob-report
-              # curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
-              #   -H "Accept: application/vnd.github.v3+json" \
-              #   https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts \
-              #   -F "name=$ARTIFACT_NAME" -F "data=@report.tar.gz"
-            fi
-          done
+      - name: Run tests
+        run: npm run test:chrome -- --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
 
-      - name: Final blob report upload
+      - name: Upload blob report
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -75,6 +59,7 @@ jobs:
         with:
           name: temp-folder
           path: ./.temp
+          retention-days: 1
 
   merge-reports:
     name: Merge Reports
@@ -88,6 +73,9 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
+
+      - name: Create required directories
+        run: mkdir -p .temp all-reports
 
       - name: Cache npm modules
         uses: actions/cache@v3
@@ -104,26 +92,40 @@ jobs:
 
       - name: Download blob reports
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           path: ./all-reports
-          pattern: '*-blob-report-*'
-          merge-multiple: true
-
-      - name: Download individual test reports
-        uses: actions/download-artifact@v4
-        with:
-          path: ./individual-reports
-          pattern: 'test-report-*'
+          pattern: 'test-blob-report-*'
           merge-multiple: true
 
       - name: Download .temp folder
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: temp-folder
           path: ./.temp
 
-      - name: List .temp folder content
-        run: ls -R ./.temp || echo ".temp folder not found!"
+      - name: Verify downloads
+        run: |
+          echo "Contents of all-reports:"
+          ls -R ./all-reports || echo "No reports downloaded"
+          
+          echo "Contents of .temp:"
+          ls -R ./.temp || echo "No temp folder downloaded"
 
       - name: Run mergeTestData
-        run: npx ts-node ./dataClenUpScripts/mergeTestData.ts
+        run: |
+          if [ -f "./dataCleanUpScripts/mergeTestData.ts" ]; then
+            npx ts-node ./dataCleanUpScripts/mergeTestData.ts
+          else
+            echo "mergeTestData.ts not found!"
+            exit 1
+          fi
+
+      - name: Upload merged report
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: merged-test-report
+          path: ./merged-report
+          retention-days: 1
