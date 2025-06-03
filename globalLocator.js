@@ -1,4 +1,5 @@
 const locators = {
+  
   "Button with Text": `(//button[normalize-space()='+'])[1]`,
   "Button with Text Add New Address": `//button[normalize-space()='Add New Address']`,
   "Button with Text Add to Cart": `//button[normalize-space()='Add to Cart']`,
