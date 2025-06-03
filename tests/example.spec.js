@@ -5,7 +5,6 @@ const abPlaywright = require("alphabin-pw");
 const config = require('../playwright.config.js');
 const { descriptions } = require('../elementDescriptions.js')
 
-
 let context;
 
 test.beforeEach(async () => {
