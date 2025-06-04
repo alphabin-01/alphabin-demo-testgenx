@@ -12,7 +12,6 @@ test.beforeEach(async () => {
     );
     context = result.context;
 });
-
 test.afterEach(async () => {
     await context?.close();
 });
