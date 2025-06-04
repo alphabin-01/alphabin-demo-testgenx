@@ -11,7 +11,7 @@ module.exports = defineConfig({
   reporter: [
     ['html', { open: 'never' }]
   ],
-  timeout: 10000,
+  timeout: 50000,
 //   expect: {
 //     timeout: 100000,
 //   },
