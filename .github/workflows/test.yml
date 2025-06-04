@@ -76,11 +76,15 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: ./all-reports
-          pattern: '*-blob-report-*'
+          pattern: test-blob-report-*
           merge-multiple: true
 
       - name: Merge HTML report
-        run: npx playwright merge-reports --config=playwright.config.ts ./all-reports
+        run: |
+          # Verify the downloaded reports
+          ls -la ./all-reports
+          # Use the correct config path
+          npx playwright merge-reports ./all-reports --config playwright.config.ts
 
       - name: Upload combined report
         uses: actions/upload-artifact@v4
@@ -91,6 +95,7 @@ jobs:
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
+        if: ${{ success() }}
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./playwright-report
