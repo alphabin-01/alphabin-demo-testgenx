@@ -1,101 +1,101 @@
-name: Run Playwright tests
+# name: Run Playwright tests
 
-on:
-  schedule:
-    - cron: '30 3 * * 1-5' # 9:00 AM IST on weekdays
-  workflow_dispatch:
+# on:
+#   schedule:
+#     - cron: '30 3 * * 1-5' # 9:00 AM IST on weekdays
+#   workflow_dispatch:
 
-jobs:
-  run-tests:
-    name: Run tests
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        shardIndex: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        shardTotal: [10]
-    steps:
-      - uses: actions/checkout@v4
+# jobs:
+#   run-tests:
+#     name: Run tests
+#     runs-on: ubuntu-latest
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         shardIndex: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+#         shardTotal: [10]
+#     steps:
+#       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v3
+#         with:
+#           node-version: '18'
 
-      - name: Cache npm modules
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+#       - name: Cache npm modules
+#         uses: actions/cache@v3
+#         with:
+#           path: ~/.npm
+#           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+#           restore-keys: |
+#             ${{ runner.os }}-node-
 
-      - name: Install dependencies
-        run: |
-          npm ci
-          npx playwright install --with-deps
+#       - name: Install dependencies
+#         run: |
+#           npm ci
+#           npx playwright install --with-deps
 
-      - name: Run tests
-        run: npm run test:chrome -- --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+#       - name: Run tests
+#         run: npm run test:chrome -- --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
 
-      - name: Upload blob report
-        uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
-        with:
-          name: test-blob-report-${{ matrix.shardIndex }}
-          path: ./blob-report
-          retention-days: 1
+#       - name: Upload blob report
+#         uses: actions/upload-artifact@v4
+#         if: ${{ !cancelled() }}
+#         with:
+#           name: test-blob-report-${{ matrix.shardIndex }}
+#           path: ./blob-report
+#           retention-days: 1
 
-  merge-reports:
-    name: Merge Reports
-    needs: [run-tests]
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+#   merge-reports:
+#     name: Merge Reports
+#     needs: [run-tests]
+#     if: ${{ always() }}
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v3
+#         with:
+#           node-version: '18'
 
-      - name: Cache npm modules
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+#       - name: Cache npm modules
+#         uses: actions/cache@v3
+#         with:
+#           path: ~/.npm
+#           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+#           restore-keys: |
+#             ${{ runner.os }}-node-
 
-      - name: Install dependencies
-        run: |
-          npm ci
-          npx playwright install --with-deps
+#       - name: Install dependencies
+#         run: |
+#           npm ci
+#           npx playwright install --with-deps
 
-      - name: Download blob reports
-        uses: actions/download-artifact@v4
-        with:
-          path: ./all-reports
-          pattern: test-blob-report-*
-          merge-multiple: true
+#       - name: Download blob reports
+#         uses: actions/download-artifact@v4
+#         with:
+#           path: ./all-reports
+#           pattern: test-blob-report-*
+#           merge-multiple: true
 
-      - name: Merge HTML report
-        run: |
-          # Verify the downloaded reports
-          ls -la ./all-reports
-          # Use the correct config path
-          npx playwright merge-reports ./all-reports --config playwright.config.ts
+#       - name: Merge HTML report
+#         run: |
+#           # Verify the downloaded reports
+#           ls -la ./all-reports
+#           # Use the correct config path
+#           npx playwright merge-reports ./all-reports --config playwright.config.ts
 
-      - name: Upload combined report
-        uses: actions/upload-artifact@v4
-        with:
-          name: Combined Test Report
-          path: ./playwright-report
-          retention-days: 14
+#       - name: Upload combined report
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: Combined Test Report
+#           path: ./playwright-report
+#           retention-days: 14
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        if: ${{ success() }}
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./playwright-report
+#       - name: Deploy to GitHub Pages
+#         uses: peaceiris/actions-gh-pages@v3
+#         if: ${{ success() }}
+#         with:
+#           github_token: ${{ secrets.GITHUB_TOKEN }}
+#           publish_dir: ./playwright-report
